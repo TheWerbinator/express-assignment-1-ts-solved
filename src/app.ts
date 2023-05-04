@@ -21,17 +21,12 @@ app.get("/dogs", async (req, res) => {
 });
 
 app.get("/dogs/:id", async (req, res) => {
-  const id = ;
-  const isNumeric = (str: string | number) => {
-    if (typeof str != "string") return false
-    return !isNaN(str) && 
-           !isNaN(parseFloat(str))
-  }
+  const id = +req.params.id;
 
-  if (isNumeric(id)) {
+  if (isNaN(id)) {
     return res
       .status(400)
-      .send({ error: "id should be a number" });
+      .send({ message: "id should be a number" });
   }
 
   const dog = await prisma.dog.findUnique({
@@ -42,26 +37,32 @@ app.get("/dogs/:id", async (req, res) => {
 
   if (!dog) {
     return res.status(204).send({ error: "Dog not found" });
-  } else id = parseInt(id)
+  }
 
   res.send(dog);
 });
 
 app.delete("/dogs/:id", async (req, res) => {
   const id = +req.params.id;
-  const deleted = await Promise.resolve()
-    .then(() =>
-      prisma.dog.delete({
-        where: {
-          id,
-        },
-      })
-    )
+
+  const deleted = await prisma.dog
+    .delete({
+      where: {
+        id,
+      },
+    })
     .catch(() => null);
-  if (deleted === null) {
-    res.status(404).send({ error: "Dog not found" });
+
+  if (isNaN(id)) {
+    res
+      .status(400)
+      .send({ message: "id should be a number" });
   }
-  return res.status(200).send("Great Success!");
+
+  if (deleted === null) {
+    res.status(204).send({ error: "Dog not found" });
+  }
+  return res.status(200).send(deleted);
 });
 
 app.post("/dogs", async (req, res) => {
@@ -93,17 +94,15 @@ app.post("/dogs", async (req, res) => {
     dataErrors.errors.push("age should be a number");
   }
 
-  let correctKeys = true;
   const incorrectKeys: string[] = [];
 
   Object.keys(body).forEach((key) => {
     if (!standardKeys.includes(key)) {
-      correctKeys = false;
       incorrectKeys.push(key);
     }
   });
 
-  if (!correctKeys) {
+  if (incorrectKeys.length) {
     incorrectKeys.forEach((incorrectKey) =>
       dataErrors.errors.push(
         `'${incorrectKey}' is not a valid key`
@@ -124,34 +123,86 @@ app.post("/dogs", async (req, res) => {
   } catch (e) {
     console.error(dataErrors);
     dataErrors.errors.splice(0, 1);
-    res.status(400).send(dataErrors);
+    dataErrors.errors.length
+      ? res.status(400).send(dataErrors)
+      : res.status(400).send(e);
   }
 });
 
 app.patch("/dogs/:id", async (req, res) => {
   const body = req.body;
   const name = body?.name;
+  const description = body?.description;
+  const breed = body?.breed;
+  const age = body?.age;
   const id = +req.params.id;
+  const standardKeys = [
+    "name",
+    "description",
+    "breed",
+    "age",
+  ];
+  interface errors {
+    errors: [string];
+  }
+  const dataErrors = {} as errors;
+  dataErrors.errors = [""];
+  const incorrectKeys: string[] = [];
 
-  if (typeof name !== "string") {
-    return res
-      .status(400)
-      .send({ error: "Name must be a string" });
+  Object.keys(body).forEach((key) => {
+    if (!standardKeys.includes(key)) {
+      incorrectKeys.push(key);
+    }
+  });
+
+  if (incorrectKeys.length) {
+    incorrectKeys.forEach((incorrectKey) =>
+      dataErrors.errors.push(
+        `'${incorrectKey}' is not a valid key`
+      )
+    );
+  }
+
+  if (name !== undefined && typeof name !== "string") {
+    dataErrors.errors.push("name should be a string");
+  }
+  if (
+    description !== undefined &&
+    typeof description !== "string"
+  ) {
+    dataErrors.errors.push(
+      "description should be a string"
+    );
+  }
+  if (breed !== undefined && typeof breed !== "string") {
+    dataErrors.errors.push("breed should be a string");
+  }
+  if (age !== undefined && typeof age !== "number") {
+    dataErrors.errors.push("age should be a number");
   }
 
   try {
-    const dog = await prisma.dog.update({
+    if (incorrectKeys.length) {
+      throw dataErrors.errors;
+    }
+    const updatedDog = await prisma.dog.update({
       where: {
-        id,
+        id: id,
       },
       data: {
         name: name,
+        description: description,
+        breed: breed,
+        age: age,
       },
     });
-    res.status(201).send(dog);
-  } catch (error) {
-    console.error(error);
-    res.status(400);
+    res.status(201).send(updatedDog);
+  } catch (e) {
+    console.error(dataErrors);
+    dataErrors.errors.splice(0, 1);
+    dataErrors.errors.length
+      ? res.status(400).send(dataErrors)
+      : res.status(400).send(e);
   }
 });
 

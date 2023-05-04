@@ -103,6 +103,7 @@ describe("POST /dogs", () => {
       `/dogs/${doomslayer.id}`,
       updateData
     );
+    console.log(data.errors);
 
     for (const key of ["id", "cheese"]) {
       expect(data.errors).toContain(

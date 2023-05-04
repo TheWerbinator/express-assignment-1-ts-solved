@@ -26,6 +26,7 @@ describe("DELETE /dogs/:id", () => {
     const { status, data } = await deleteRequest(
       `/dogs/dummy`
     );
+    console.log(status, data);
     expect(status).toEqual(400);
     expect(data.message).toEqual("id should be a number");
   });
@@ -34,6 +35,7 @@ describe("DELETE /dogs/:id", () => {
     const { data, status } = await deleteRequest(
       `/dogs/${doomslayer.id}`
     );
+
     expect(data).toEqual(doomslayer);
     expect(status).toEqual(200);
     const dogs = await prisma.dog.findMany({
